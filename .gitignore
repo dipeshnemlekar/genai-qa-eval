@@ -1,0 +1,12 @@
+# Ignore python cache files
+**/__pycache__/
+*.pyc
+
+# Ignore testing tool caches
+**/.deepeval/
+**/.pytest_cache/
+
+# Ignore local environment and IDE settings
+.env
+.venv/
+.idea/
