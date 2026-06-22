@@ -1,27 +1,46 @@
 import os
 from dotenv import load_dotenv
 from deepeval import evaluate
-from deepeval.test_case import ConversationalTestCase, Turn, LLMTestCaseParams
+from deepeval.test_case import ConversationalTestCase, Turn, MultiTurnParams
 from deepeval.metrics import ConversationalGEval
 from deepeval.models import GeminiModel
 
-# 1. Load the .env file so os.environ can find your keys
+# Load environment variables (GOOGLE_API_KEY, MODEL) from the .env file
 load_dotenv()
 
+
 def test_professionalism():
+    """
+    Conversational professionalism test.
+    Evaluates multi-turn assistant conversations to ensure the assistant
+    responds in a polite and professional manner regardless of how basic
+    the user's questions are. Two contrasting conversations are scored:
+      - Example 1 (rude)        → expected to FAIL the threshold
+      - Example 2 (professional) → expected to PASS the threshold
+    """
+
+    # ---------- Judge Model ----------
+    # Gemini instance used to evaluate the conversational tone
     gemini_judge = GeminiModel(
-        model=os.environ.get("MODEL"), 
-        api_key=os.environ.get("GOOGLE_API_KEY")
+        model=os.environ["MODEL"],       # Fail fast if MODEL is not set
+        api_key=os.environ["GOOGLE_API_KEY"]
     )
 
+    # ---------- Metric ----------
+    # ConversationalGEval: a multi-turn variant of GEval that scores entire
+    # conversations rather than single request/response pairs
     professionalism_metric = ConversationalGEval(
         name="Professionalism",
-        criteria="Determine whether the assistant answered the questions of the user in a professional and polite manner.",
-        evaluation_params=[LLMTestCaseParams.ACTUAL_OUTPUT],
+        criteria="Determine whether the assistant answered questions in a professional and polite manner.",
+        evaluation_params=[MultiTurnParams.CONTENT],  # Evaluate the full conversation content
         model=gemini_judge,
-        threshold=0.7 # Add a threshold (0.0 to 1.0)
+        threshold=0.7  # Minimum acceptable score (0.0 to 1.0)
     )
 
+    # ---------- Test Cases ----------
+
+    # Negative example: assistant is dismissive and rude
+    # This conversation should score BELOW the threshold
     conversation_example1 = ConversationalTestCase(
         turns=[
             Turn(role='user', content='What is the capital of India?'),
@@ -31,6 +50,8 @@ def test_professionalism():
         ]
     )
 
+    # Positive example: assistant is helpful and courteous
+    # This conversation should score ABOVE the threshold
     conversation_example2 = ConversationalTestCase(
         turns=[
             Turn(role='user', content='What is the capital of India?'),
@@ -40,7 +61,9 @@ def test_professionalism():
         ]
     )
 
-    # You can pass multiple test cases to a single evaluate call
+    # ---------- Evaluation ----------
+    # Run both conversations through the professionalism metric.
+    # The positive example is listed first so results are easier to read.
     evaluate(
         test_cases=[conversation_example2, conversation_example1],
         metrics=[professionalism_metric]
