@@ -1,6 +1,7 @@
 # Ignore python cache files
 **/__pycache__/
 *.pyc
+.gitignore
 
 # Ignore testing tool caches
 **/.deepeval/
@@ -10,3 +11,6 @@
 .env
 .venv/
 .idea/
+
+# Ignore personal data
+dailyupdate.txt
