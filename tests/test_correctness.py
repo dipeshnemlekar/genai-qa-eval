@@ -1,42 +1,34 @@
-import os
-from dotenv import load_dotenv
-from deepeval import assert_test
+import pytest
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 from deepeval.metrics import GEval
-from deepeval.models import GeminiModel
+from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
 
-# Load environment variables (such as GOOGLE_API_KEY and MODEL) from the .env file
-load_dotenv()
+test_data = load_dataset("testdata.json", "golden")
 
-def test_correctness():
+@pytest.mark.parametrize("test_case_data", test_data)
+def test_correctness(test_case_data):
     """
     Test case to evaluate the exact correctness of an LLM's response.
     This utilizes GEval with a custom Gemini Model instance as the judge.
     """
-    
-    # Initialize the judge using the model and API key specified in your environment
-    gemini_judge = GeminiModel(
-        model=os.environ["MODEL"],
-        api_key=os.environ["GOOGLE_API_KEY"]
-    )
+    gemini_judge = get_gemini_judge()
 
-    # Define a custom GEval metric for "Correctness"
-    # This metric checks if the actual output perfectly matches the expected output
     correctness_metric = GEval(
         name='Correctness',
         criteria='check if the actual output is exactly the same as the expected output. If not return 0 else 1.',
-        # evaluation_params defines which parts of the test case are sent to the judge model
         evaluation_params=[SingleTurnParams.ACTUAL_OUTPUT, SingleTurnParams.EXPECTED_OUTPUT],
-        threshold=0.1,  # Passing threshold for the evaluation (0.0 to 1.0)
+        threshold=0.1,
         model=gemini_judge
     )
 
-    # Create an individual test case simulating a user query and the expected vs actual response
     test_case = LLMTestCase(
-        input="1+2*3",
-        expected_output="7",
-        actual_output="7"
+        input=test_case_data["input"],
+        expected_output=test_case_data["expected_output"],
+        actual_output=test_case_data["actual_output"]
     )
 
-    # Execute the test by evaluating the test_case against the correctness_metric
-    assert_test(test_case, [correctness_metric])
+    run_test_with_retry(
+        test_case=test_case,
+        metrics=[correctness_metric],
+        test_case_id=test_case_data.get("id", "Unknown")
+    )
