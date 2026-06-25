@@ -1,4 +1,7 @@
 import pytest
+import logging
+
+logger = logging.getLogger(__name__)
 from deepeval.test_case import ConversationalTestCase, Turn, MultiTurnParams
 from deepeval.metrics import ConversationalGEval
 from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
@@ -11,6 +14,7 @@ def test_professionalism(test_case_data):
     Conversational professionalism test using dataset.
     Evaluates multi-turn assistant conversations.
     """
+    logger.info(f"Running test case: {test_case_data.get('id', 'Unknown')}")
     gemini_judge = get_gemini_judge()
 
     professionalism_metric = ConversationalGEval(

@@ -1,4 +1,7 @@
 import pytest
+import logging
+
+logger = logging.getLogger(__name__)
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 from deepeval.metrics import FaithfulnessMetric, AnswerRelevancyMetric, GEval
 from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
@@ -12,6 +15,7 @@ def test_rag(test_case_data):
     End-to-end RAG quality test using dataset.
     Evaluates an LLM response against Faithfulness, Answer Relevancy, and Professionalism.
     """
+    logger.info(f"Running test case: {test_case_data.get('id', 'Unknown')}")
     gemini_judge = get_gemini_judge()
 
     faithfulness_metric = FaithfulnessMetric(

@@ -1,4 +1,7 @@
 import pytest
+import logging
+
+logger = logging.getLogger(__name__)
 from deepeval.test_case import LLMTestCase, SingleTurnParams
 from deepeval.metrics import GEval
 from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
@@ -11,6 +14,7 @@ def test_correctness(test_case_data):
     Test case to evaluate the exact correctness of an LLM's response.
     This utilizes GEval with a custom Gemini Model instance as the judge.
     """
+    logger.info(f"Running test case: {test_case_data.get('id', 'Unknown')}")
     gemini_judge = get_gemini_judge()
 
     correctness_metric = GEval(
