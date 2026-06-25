@@ -2,7 +2,7 @@ import pytest
 import logging
 
 logger = logging.getLogger(__name__)
-from deepeval.test_case import LLMTestCase, SingleTurnParams
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from deepeval.metrics import GEval
 from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
 
@@ -19,16 +19,21 @@ def test_correctness(test_case_data):
 
     correctness_metric = GEval(
         name='Correctness',
-        criteria='check if the actual output is exactly the same as the expected output. If not return 0 else 1.',
-        evaluation_params=[SingleTurnParams.ACTUAL_OUTPUT, SingleTurnParams.EXPECTED_OUTPUT],
-        threshold=0.1,
+        criteria='Determine whether the actual output is factually correct based on the expected output. '
+                 'The actual output should be considered correct if it conveys the same meaning and facts '
+                 'as the expected output, even if worded differently. Penalize omissions or hallucinations.',
+        evaluation_params=[LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.EXPECTED_OUTPUT],
+        threshold=0.5,
         model=gemini_judge
     )
 
+    context = [test_case_data.get("retrive_context", "")] if test_case_data.get("retrive_context") else []
+
     test_case = LLMTestCase(
         input=test_case_data["input"],
-        expected_output=test_case_data["expected_output"],
-        actual_output=test_case_data["actual_output"]
+        expected_output=test_case_data.get("expected_output", ""),
+        actual_output=test_case_data["actual_output"],
+        context=context
     )
 
     run_test_with_retry(
