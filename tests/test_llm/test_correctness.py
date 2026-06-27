@@ -27,7 +27,7 @@ def test_correctness(test_case_data):
         model=gemini_judge
     )
 
-    context = [test_case_data.get("retrive_context", "")] if test_case_data.get("retrive_context") else []
+    context = test_case_data.get("retrive_context") or None
 
     test_case = LLMTestCase(
         input=test_case_data["input"],
