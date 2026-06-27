@@ -9,7 +9,6 @@ from typing import Dict, Any, Generator, Optional
 
 logger = logging.getLogger(__name__)
 
-# Add project root to sys.path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
@@ -88,13 +87,7 @@ def pytest_runtest_call(item: pytest.Item) -> None:
                     "reason": human_reason
                 }
                 item.config.human_labels = human_labels
-                
-                # Save to file immediately
-                try:
-                    with open(HUMAN_LABELS_PATH, 'w', encoding='utf-8') as f:
-                        json.dump(human_labels, f, indent=2)
-                except Exception as e:
-                    logger.error(f"Could not save label to human_labels.json: {e}")
+
             
             if capmanager:
                 capmanager.resume_global_capture()
@@ -113,7 +106,6 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> Gener
             test_case_id = item.callspec.params['test_case_data'].get('id')
             if test_case_id:
                 llm_results = getattr(item.config, 'llm_results', {})
-                # Passed -> 1, Failed -> 0
                 llm_results[test_case_id] = 1 if rep.passed else 0
                 item.config.llm_results = llm_results
 
@@ -124,7 +116,6 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     """
     human_labels: Dict[str, Any] = getattr(config, 'human_labels', {})
     
-    # Generate CSV Report
     all_test_cases: Dict[str, Any] = getattr(config, 'all_test_cases', {})
     if all_test_cases:
         reports_dir = os.path.join(PROJECT_ROOT, 'reports')
@@ -172,11 +163,9 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     if not human_labels:
         return
 
-    # Find intersection of evaluated test cases
     h_labels = []
     l_labels = []
     
-    # Check intersection using llm_eval_results instead of config.llm_results
     for test_id, llm_data in llm_eval_results.items():
         if test_id in human_labels:
             h_data = human_labels[test_id]

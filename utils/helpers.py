@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+import pytest
 from typing import List, Tuple, Dict, Any, Optional
 from functools import lru_cache
 from dotenv import load_dotenv
@@ -26,7 +27,6 @@ def load_dataset(filename: str = "testdata.json", key: Optional[str] = "golden")
         List[Dict[str, Any]]: A list of test case dictionaries. Returns an empty list if an error occurs.
     """
     try:
-        # __file__ is utils/helpers.py, root is one level up
         root_dir = os.path.dirname(os.path.dirname(__file__))
         testdata_path = os.path.join(root_dir, 'datasets', filename)
         with open(testdata_path, 'r', encoding='utf-8') as f:
@@ -58,7 +58,6 @@ def get_gemini_judge() -> GeminiModel:
 def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unknown", max_retries: Optional[int] = None) -> None:
     """
     Executes assert_test and logs metric failure reasons.
-    (Retry logic has been removed as requested).
     
     Args:
         test_case (Any): The DeepEval LLMTestCase or similar object to evaluate.
@@ -69,31 +68,36 @@ def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unkn
     Raises:
         AssertionError: If the test case fails any of the metric thresholds.
     """
-    # Ensure metrics is a list
     if not isinstance(metrics, list):
         metrics = [metrics]
         
     try:
+        # We must explicitly call measure() to populate the local metric.reason
+        # property before assert_test (which intercepts and doesn't mutate).
+        for metric in metrics:
+            metric.measure(test_case)
+            
         assert_test(test_case, metrics)
         if metrics:
             metric = metrics[0]
+            reason = getattr(metric, "reason", None)
             llm_eval_results[test_case_id] = {
                 "score": 1,
-                "reason": getattr(metric, "reason", "Passed.")
+                "reason": reason if reason else "Passed."
             }
-        return  # Success
+        return
     except AssertionError as e:
-        # The test failed the score threshold
         fail_reasons = []
         for metric in metrics:
             try:
                 if getattr(metric, 'score', 0) < getattr(metric, 'threshold', 0):
-                    reason = getattr(metric, 'reason', 'No reason provided.')
-                    fail_reasons.append(f"{metric.__class__.__name__}: {reason}")
+                    m_reason = getattr(metric, 'reason', None)
+                    reason_text = m_reason if m_reason else 'No reason provided.'
+                    fail_reasons.append(f"{metric.__class__.__name__}: {reason_text}")
                     logger.error(
                         f"\nMetric {metric.__class__.__name__} failed for Test Case: {test_case_id}\n"
                         f"Score: {metric.score}\n"
-                        f"Reason: {reason}"
+                        f"Reason: {reason_text}"
                     )
             except Exception as ex:
                 logger.error(f"Error accessing metric {metric.__class__.__name__}: {ex}")
@@ -106,8 +110,7 @@ def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unkn
             "reason": " | ".join(fail_reasons)
         }
         
-        # Re-raise the assertion error to ensure pytest marks it as FAILED
-        raise e
+        pytest.fail(f"Test Case {test_case_id} failed: {' | '.join(fail_reasons)}", pytrace=False)
 
 def calculate_cohens_kappa(human_labels: List[int], llm_labels: List[int]) -> Tuple[float, float]:
     """
