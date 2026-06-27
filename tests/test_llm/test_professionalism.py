@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 from deepeval.test_case import ConversationalTestCase, Turn, MultiTurnParams
 from deepeval.metrics import ConversationalGEval
-from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
+from utils.helpers import load_dataset, get_gemini_judge, run_evaluation
 
 test_data = load_dataset("conversations.json", "conversations")
 
@@ -31,7 +31,7 @@ def test_professionalism(test_case_data):
 
     test_case = ConversationalTestCase(turns=turns)
 
-    run_test_with_retry(
+    run_evaluation(
         test_case=test_case,
         metrics=[professionalism_metric],
         test_case_id=test_case_data.get("id", "Unknown")

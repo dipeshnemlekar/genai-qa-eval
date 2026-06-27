@@ -4,9 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 from deepeval.test_case import LLMTestCase
 from deepeval.metrics import HallucinationMetric
-from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
+from utils.helpers import load_dataset, get_gemini_judge, run_evaluation
 
-test_data = load_dataset("testdata.json", "golden")
+test_data = load_dataset("llm_data.json", key=None)
 
 @pytest.mark.rag
 @pytest.mark.parametrize("test_case_data", test_data)
@@ -30,7 +30,7 @@ def test_hallucination(test_case_data):
         context=context
     )
 
-    run_test_with_retry(
+    run_evaluation(
         test_case=test_case,
         metrics=[hallucination_metric],
         test_case_id=test_case_data.get("id", "Unknown")

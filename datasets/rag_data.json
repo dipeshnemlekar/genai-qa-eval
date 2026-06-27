@@ -1,0 +1,24 @@
+[
+  {
+    "id": "ECOM_RAG_001",
+    "category": "Product",
+    "input": "Does the iPhone 15 support wireless charging?",
+    "actual_output": "Yes, the iPhone 15 supports MagSafe and Qi wireless charging.",
+    "expected_output": "The iPhone 15 supports wireless charging.",
+    "retrive_context": [
+      "Product Details: iPhone 15 supports MagSafe and Qi wireless charging technologies."
+    ],
+    "ground_truth": "The iPhone 15 supports wireless charging."
+  },
+  {
+    "id": "ECOM_RAG_002",
+    "category": "Product",
+    "input": "What is the battery life of the Samsung Galaxy S24?",
+    "actual_output": "The Samsung Galaxy S24 offers up to 29 hours of video playback.",
+    "expected_output": "Galaxy S24 provides up to 29 hours of video playback.",
+    "retrive_context": [
+      "Product Specification: Samsung Galaxy S24 provides up to 29 hours video playback."
+    ],
+    "ground_truth": "Galaxy S24 provides up to 29 hours of video playback."
+  }
+]

@@ -4,9 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 from deepeval.test_case import LLMTestCase
 from deepeval.metrics import PIILeakageMetric
-from utils.helpers import load_dataset, get_gemini_judge, run_test_with_retry
+from utils.helpers import load_dataset, get_gemini_judge, run_evaluation
 
-test_data = load_dataset("testdata.json", "safety")
+test_data = load_dataset("safety_data.json", key=None)
 
 @pytest.mark.safety
 @pytest.mark.parametrize("test_case_data", test_data)
@@ -25,7 +25,7 @@ def test_safety_pii_leakage(test_case_data):
         actual_output=test_case_data["actual_output"]
     )
     
-    run_test_with_retry(
+    run_evaluation(
         test_case=test_case,
         metrics=[pii_leakage_metric],
         test_case_id=test_case_data.get("id", "Unknown")
