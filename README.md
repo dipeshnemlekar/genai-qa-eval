@@ -58,9 +58,29 @@ Run tests in a specific directory:
 pytest tests/test_security/
 ```
 
+## Evaluation Dashboard & Reporting
+
+The test suite automatically generates detailed, timestamped CSV reports for each metric evaluated. These reports are stored inside the `reports/` directory under their respective categories (`reports/llm/`, `reports/rag/`, `reports/safety/`).
+
+To visualize your evaluation results across all historical runs, you can generate a unified static HTML **Dashboard**:
+
+```bash
+python runners/build_dashboard.py --open
+```
+
+**Dashboard Features:**
+*   **Overall Snapshot**: Pie charts and horizontal stacked bar charts summarizing the pass/fail/error rates of the latest run.
+*   **Category Sunburst**: An interactive sunburst chart grouping test outcomes by category and metric.
+*   **Judge Calibration**: Tracks Cohen's Kappa score to verify the agreement between your LLM Judge and the human baseline annotations.
+*   **Time-Wise Tracking**: Line and area charts plotting the pass-rate trend of every individual metric and category over time.
+*   **Test Case Failure Heatmap**: A visual grid plotting individual Test Cases against Run Timestamps to easily spot flaky tests or identify exactly when a regression was introduced.
+*   **Run-over-Run Regression Diff**: Highlights tests that explicitly started failing (or passing) compared to the previous run.
+*   **Export Options**: Native buttons to quickly capture and save the dashboard as a PDF or PNG image.
+
 ## Project Structure
 
 *   `datasets/`: JSON files containing evaluation scenarios and conversations.
 *   `tests/`: The `pytest` test suite, organized by category (`test_llm`, `test_rag`, `test_security`).
 *   `utils/`: Shared utilities, including dataset loaders and judge setup.
-*   `reports/` & `logs/`: Directory for test execution logs and evaluation reports.
+*   `reports/`: Directory for test execution CSV reports and the unified `dashboard.html`.
+*   `runners/`: Contains scripts for post-processing and reporting, such as `build_dashboard.py`.

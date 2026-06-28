@@ -4,10 +4,21 @@
     "category": "Positive",
     "input": "What is your return policy?",
     "actual_output": "Customers can return products within 30 days of delivery if the item is unused and in its original packaging.",
-    "expected_output": "Products can be returned within 1 days of delivery.",
+    "expected_output": "Products can be returned within 30 days of delivery.",
     "retrive_context": [
-      "Return Policy: Customers may return products within 9 days of delivery provided items remain unused and in original packaging."
+      "Return Policy: Customers may return products within 30 days of delivery provided items remain unused and in original packaging."
     ],
     "ground_truth": "Products can be returned within 30 days of delivery."
+  },
+  {
+    "id": "ECOM_HALL_002",
+    "category": "Hallucination",
+    "input": "How long does shipping take?",
+    "actual_output": "All orders are delivered within 24 hours worldwide.",
+    "expected_output": "Shipping takes 3-5 business days.",
+    "retrive_context": [
+      "Shipping Policy: Standard shipping takes 3-5 business days."
+    ],
+    "ground_truth": "Shipping takes 3-5 business days."
   }
 ]

@@ -51,7 +51,35 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         if test_case_id:
             if not hasattr(item.config, 'all_test_cases'):
                 item.config.all_test_cases = {}
-            item.config.all_test_cases[test_case_id] = test_case_data
+            
+            nodeid = item.nodeid
+            file_path = nodeid.split("::")[0]
+            parts = file_path.split("/")
+            
+            if len(parts) >= 2:
+                folder_part = parts[-2]
+                file_part = parts[-1]
+            else:
+                folder_part = "other"
+                file_part = file_path
+                
+            folder_map = {
+                "test_llm": "llm",
+                "test_rag": "rag",
+                "test_security": "safety"
+            }
+            folder_name = folder_map.get(folder_part, folder_part)
+            
+            test_name = file_part.replace('.py', '')
+            if test_name.startswith('test_'):
+                test_name = test_name[5:]
+                
+            if folder_name not in item.config.all_test_cases:
+                item.config.all_test_cases[folder_name] = {}
+            if test_name not in item.config.all_test_cases[folder_name]:
+                item.config.all_test_cases[folder_name][test_name] = {}
+                
+            item.config.all_test_cases[folder_name][test_name][test_case_id] = test_case_data
         
         try:
             needs_human_eval = item.config.getini('human_eval')
@@ -118,44 +146,49 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     
     all_test_cases: Dict[str, Any] = getattr(config, 'all_test_cases', {})
     if all_test_cases:
-        reports_dir = os.path.join(PROJECT_ROOT, 'reports')
-        os.makedirs(reports_dir, exist_ok=True)
+        reports_base_dir = os.path.join(PROJECT_ROOT, 'reports')
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        report_filename = f"evaluation_report_{timestamp}.csv"
-        csv_path = os.path.join(reports_dir, report_filename)
         
         try:
-            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                writer.writerow(["TC No", "Input", "Expected Output", "Actual Output", "Judge Score", "LLM Reason", "Human Score", "Human Reason"])
+            for folder_name, folder_data in all_test_cases.items():
+                folder_dir = os.path.join(reports_base_dir, folder_name)
+                os.makedirs(folder_dir, exist_ok=True)
                 
-                for test_id, test_data in all_test_cases.items():
-                    llm_data = llm_eval_results.get(test_id, {})
-                    l_score = llm_data.get("score", "")
-                    l_reason = llm_data.get("reason", "")
+                for test_name, test_cases_dict in folder_data.items():
+                    report_filename = f"{test_name}_report_{timestamp}.csv"
+                    csv_path = os.path.join(folder_dir, report_filename)
                     
-                    h_data = human_labels.get(test_id)
-                    if isinstance(h_data, dict):
-                        h_score = h_data.get("score", "")
-                        h_reason = h_data.get("reason", "")
-                    elif h_data is not None:
-                        h_score = h_data
-                        h_reason = ""
-                    else:
-                        h_score = ""
-                        h_reason = ""
+                    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                        writer = csv.writer(f)
+                        writer.writerow(["TC No", "Input", "Expected Output", "Actual Output", "Judge Score", "LLM Reason", "Human Score", "Human Reason"])
                         
-                    writer.writerow([
-                        test_id,
-                        test_data.get("input", ""),
-                        test_data.get("expected_output", ""),
-                        test_data.get("actual_output", ""),
-                        l_score,
-                        l_reason,
-                        h_score,
-                        h_reason
-                    ])
-            terminalreporter.write_line(f"\n📝 Evaluation report saved to: {csv_path}", bold=True)
+                        for test_id, test_data in test_cases_dict.items():
+                            llm_data = llm_eval_results.get(test_id, {})
+                            l_score = llm_data.get("score", "")
+                            l_reason = llm_data.get("reason", "")
+                            
+                            h_data = human_labels.get(test_id)
+                            if isinstance(h_data, dict):
+                                h_score = h_data.get("score", "")
+                                h_reason = h_data.get("reason", "")
+                            elif h_data is not None:
+                                h_score = h_data
+                                h_reason = ""
+                            else:
+                                h_score = ""
+                                h_reason = ""
+                                
+                            writer.writerow([
+                                test_id,
+                                test_data.get("input", ""),
+                                test_data.get("expected_output", ""),
+                                test_data.get("actual_output", ""),
+                                l_score,
+                                l_reason,
+                                h_score,
+                                h_reason
+                            ])
+                    terminalreporter.write_line(f"\n📝 Evaluation report saved to: {csv_path}", bold=True)
         except Exception as e:
             terminalreporter.write_line(f"\nFailed to save evaluation report: {e}", red=True)
             logger.error(f"Failed to write CSV report: {e}")
