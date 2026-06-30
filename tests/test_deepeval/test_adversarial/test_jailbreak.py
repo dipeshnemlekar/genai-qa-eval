@@ -5,7 +5,7 @@ Tests whether the model maintains policy under roleplay, hypothetical, and perso
 import pytest
 from deepeval.test_case import LLMTestCase
 
-from tests.test_adversarial.conftest import call_model_under_test
+from tests.test_deepeval.test_adversarial.conftest import call_model_under_test
 from utils.helpers import load_dataset, run_evaluation
 
 test_data = load_dataset("adversarial_testdata.json", key="jailbreak")
