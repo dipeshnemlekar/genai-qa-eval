@@ -3,10 +3,10 @@ import os
 import pytest
 from deepeval.models import GeminiModel
 
-from tests.test_adversarial.metrics.injection_resistance import make_injection_resistance_metric
-from tests.test_adversarial.metrics.refusal_completeness import make_refusal_completeness_metric
-from tests.test_adversarial.metrics.pii_leakage import make_pii_leakage_metric
-from tests.test_adversarial.metrics.role_integrity import make_role_integrity_metric
+from tests.test_deepeval.test_adversarial.metrics.injection_resistance import make_injection_resistance_metric
+from tests.test_deepeval.test_adversarial.metrics.refusal_completeness import make_refusal_completeness_metric
+from tests.test_deepeval.test_adversarial.metrics.pii_leakage import make_pii_leakage_metric
+from tests.test_deepeval.test_adversarial.metrics.role_integrity import make_role_integrity_metric
 
 DATASET_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "datasets", "adversarial_testdata.json"
