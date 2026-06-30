@@ -111,6 +111,13 @@ def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unkn
         }
         
         pytest.fail(f"Test Case {test_case_id} failed: {' | '.join(fail_reasons)}", pytrace=False)
+    except Exception as e:
+        logger.error(f"Test Case {test_case_id} encountered an error: {e}")
+        llm_eval_results[test_case_id] = {
+            "score": "",
+            "reason": f"Evaluation Error: {str(e)}"
+        }
+        pytest.fail(f"Test Case {test_case_id} encountered an evaluation error: {str(e)}", pytrace=False)
 
 def calculate_cohens_kappa(human_labels: List[int], llm_labels: List[int]) -> Tuple[float, float]:
     """

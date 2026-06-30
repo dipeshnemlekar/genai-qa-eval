@@ -44,9 +44,15 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     """
     Hook to prompt for human evaluation if the test case has needs_human_eval flag.
     """
-    if hasattr(item, 'callspec') and 'test_case_data' in item.callspec.params:
-        test_case_data = item.callspec.params['test_case_data']
-        test_case_id = test_case_data.get('id')
+    if hasattr(item, 'callspec'):
+        case_data = None
+        for key in ['test_case_data', 'injection_case', 'jailbreak_case', 'spe_case', 'pii_case', 'role_case', 'harm_case']:
+            if key in item.callspec.params:
+                case_data = item.callspec.params[key]
+                break
+        
+        if case_data:
+            test_case_id = case_data.get('id') or case_data.get('attack_id')
         
         if test_case_id:
             if not hasattr(item.config, 'all_test_cases'):
@@ -66,7 +72,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
             folder_map = {
                 "test_llm": "llm",
                 "test_rag": "rag",
-                "test_security": "safety"
+                "test_security": "safety",
+                "test_adversarial": "adversarial"
             }
             folder_name = folder_map.get(folder_part, folder_part)
             
@@ -79,7 +86,14 @@ def pytest_runtest_call(item: pytest.Item) -> None:
             if test_name not in item.config.all_test_cases[folder_name]:
                 item.config.all_test_cases[folder_name][test_name] = {}
                 
-            item.config.all_test_cases[folder_name][test_name][test_case_id] = test_case_data
+            # For adversarial cases, map 'user_input' to 'input' and 'expected_behavior' to 'expected_output'
+            # so the CSV writer finds them.
+            if 'attack_id' in case_data:
+                case_data = case_data.copy()
+                case_data['input'] = case_data.get('user_input', '')
+                case_data['expected_output'] = case_data.get('expected_behavior', '')
+                
+            item.config.all_test_cases[folder_name][test_name][test_case_id] = case_data
         
         try:
             needs_human_eval = item.config.getini('human_eval')
@@ -94,9 +108,9 @@ def pytest_runtest_call(item: pytest.Item) -> None:
                 capmanager.suspend_global_capture(in_=True)
             
             print(f"\n\n=== HUMAN EVALUATION REQUIRED: {test_case_id} ===")
-            print(f"Input: {test_case_data.get('input')}")
-            print(f"Expected Output: {test_case_data.get('expected_output')}")
-            print(f"Actual Output: {test_case_data.get('actual_output')}")
+            print(f"Input: {case_data.get('input')}")
+            print(f"Expected Output: {case_data.get('expected_output')}")
+            print(f"Actual Output: {case_data.get('actual_output')}")
             
             human_score = None
             while True:
@@ -130,12 +144,34 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> Gener
     rep = outcome.get_result()
 
     if rep.when == 'call':
-        if hasattr(item, 'callspec') and 'test_case_data' in item.callspec.params:
-            test_case_id = item.callspec.params['test_case_data'].get('id')
-            if test_case_id:
-                llm_results = getattr(item.config, 'llm_results', {})
-                llm_results[test_case_id] = 1 if rep.passed else 0
-                item.config.llm_results = llm_results
+        if hasattr(item, 'callspec'):
+            case_data = None
+            for key in ['test_case_data', 'injection_case', 'jailbreak_case', 'spe_case', 'pii_case', 'role_case', 'harm_case']:
+                if key in item.callspec.params:
+                    case_data = item.callspec.params[key]
+                    break
+            
+            if case_data:
+                test_case_id = case_data.get('id') or case_data.get('attack_id')
+                if test_case_id:
+                    llm_results = getattr(item.config, 'llm_results', {})
+                    llm_results[test_case_id] = 1 if rep.passed else 0
+                    item.config.llm_results = llm_results
+                    
+                    # Since all tests now use run_evaluation, this acts as a fallback for unhandled exceptions.
+                    # We can scrape the failure reason from the report if it crashed.
+                    if test_case_id not in llm_eval_results:
+                        score = 1 if rep.passed else ""
+                        reason = "Passed." if rep.passed else "Error."
+                        if not rep.passed and hasattr(rep, "longreprtext"):
+                            # Try to extract the last line of the exception which usually contains the reason
+                            lines = [line for line in rep.longreprtext.split('\n') if line.strip()]
+                            if lines:
+                                reason = lines[-1]
+                        llm_eval_results[test_case_id] = {
+                            "score": score,
+                            "reason": reason
+                        }
 
 def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:
     """

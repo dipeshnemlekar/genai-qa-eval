@@ -15,6 +15,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "llm":           "LLM Quality",
     "conversational": "Conversational",
     "quality":       "Quality",
+    "adversarial":   "Security Posture",
 }
 
 # Optional fallback: when a metric CSV sits directly in reports/ with no
@@ -40,6 +41,10 @@ METRIC_CATEGORY: dict[str, str] = {
     "Misuse Resistance":          "Safety",
     "Prompt Injection":           "Safety",
     "Non Advice":                 "Safety",
+    "Injection Resistance":       "Security Posture",
+    "Refusal Completeness":       "Security Posture",
+    "Pii Leakage":                "Security Posture",
+    "Role Integrity":             "Security Posture",
 }
 
 # Metrics where a LOWER score indicates better performance.
