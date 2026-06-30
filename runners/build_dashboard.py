@@ -50,7 +50,7 @@ try:
     import eval_config as cfg
 except ImportError:
     class _Cfg:
-        CATEGORY_LABELS    = {"rag": "RAG", "safety": "Safety", "llm": "LLM Quality"}
+        CATEGORY_LABELS    = {"rag": "RAG", "safety": "Safety", "llm": "LLM Quality", "adversarial": "Security Posture"}
         METRIC_CATEGORY    = {}
         LOWER_IS_BETTER    = {"Hallucination", "Pii Leakage", "Bias", "Toxicity"}
         THRESHOLDS         = {}
@@ -836,6 +836,100 @@ def _calibration_html(latest_rows: list[dict]) -> str:
     </div>
     """
 
+def chart_security_posture(latest_rows: list[dict]) -> str:
+    adv_file = ROOT / "datasets" / "adversarial_testdata.json"
+    if not adv_file.exists():
+        return ""
+    try:
+        import json
+        with adv_file.open("r", encoding="utf-8") as f:
+            adv_data = json.load(f)
+    except Exception:
+        return ""
+    
+    attack_meta = {}
+    for cat, cases in adv_data.items():
+        if isinstance(cases, list):
+            for c in cases:
+                if "attack_id" in c:
+                    attack_meta[c["attack_id"]] = {
+                        "category": cat,
+                        "vector": c.get("attack_vector", ""),
+                        "severity": c.get("severity", "unknown").lower(),
+                    }
+    
+    adv_rows = [r for r in latest_rows if r["case"] in attack_meta]
+    if not adv_rows:
+        return ""
+    
+    cat_counts = defaultdict(lambda: {"passed": 0, "total": 0})
+    sev_counts = defaultdict(lambda: {"passed": 0, "total": 0})
+    worst_offenders = []
+    
+    for r in adv_rows:
+        meta = attack_meta[r["case"]]
+        cat, sev = meta["category"], meta["severity"]
+        cat_counts[cat]["total"] += 1
+        sev_counts[sev]["total"] += 1
+        if r["passed"] is True:
+            cat_counts[cat]["passed"] += 1
+            sev_counts[sev]["passed"] += 1
+        elif r["passed"] is False:
+            worst_offenders.append({
+                "attack_id": r["case"], "attack_vector": meta["vector"],
+                "metric": r["metric"], "score": r["score"], "reason": r["reason"]
+            })
+            
+    cats = sorted(cat_counts.keys())
+    cat_rates = [cat_counts[c]["passed"]/cat_counts[c]["total"] if cat_counts[c]["total"] else 0 for c in cats]
+    fig_cat = go.Figure(go.Bar(
+        x=cats, y=cat_rates, marker_color="#e67e22", text=[f"{r:.0%}" for r in cat_rates], textposition="auto"
+    ))
+    fig_cat.update_layout(
+        title="Pass Rate per Attack Category",
+        yaxis=dict(title="Pass Rate", tickformat=".0%", range=[0, 1.05], gridcolor="rgba(255,255,255,0.08)"),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#e0e0e0"), height=350, margin=dict(l=40, r=20, t=50, b=50)
+    )
+    fig_cat.update_xaxes(gridcolor="rgba(255,255,255,0.08)")
+    
+    sevs = ["critical", "high", "medium", "low"]
+    sevs_present = [s for s in sevs if sev_counts[s]["total"] > 0]
+    sev_rates = [sev_counts[s]["passed"]/sev_counts[s]["total"] for s in sevs_present]
+    fig_sev = go.Figure(go.Bar(
+        x=sevs_present, y=sev_rates, marker_color="#e91e63", text=[f"{r:.0%}" for r in sev_rates], textposition="auto"
+    ))
+    fig_sev.update_layout(
+        title="Pass Rate by Severity",
+        yaxis=dict(title="Pass Rate", tickformat=".0%", range=[0, 1.05], gridcolor="rgba(255,255,255,0.08)"),
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#e0e0e0"), height=350, margin=dict(l=40, r=20, t=50, b=50)
+    )
+    fig_sev.update_xaxes(gridcolor="rgba(255,255,255,0.08)")
+    
+    c_cat_html = pio.to_html(fig_cat, full_html=False, include_plotlyjs=False)
+    c_sev_html = pio.to_html(fig_sev, full_html=False, include_plotlyjs=False)
+    
+    worst_offenders.sort(key=lambda x: x["score"] if x["score"] is not None else 0)
+    rows_html = "".join(
+        f"<tr><td><code>{_esc(w['attack_id'])}</code></td><td>{_esc(w['attack_vector'])}</td><td>{_esc(w['metric'])}</td><td>{_score_fmt(w['score'])}</td><td class='reason-cell'>{_esc(w['reason'])}</td></tr>"
+        for w in worst_offenders[:20]
+    )
+    table_html = (
+        f"<div class='section-card failing-card'><h3>Worst Offenders (Failed Attacks)</h3>"
+        f"<div class='table-wrap'><table class='data-table'><thead><tr>"
+        f"<th>Attack ID</th><th>Attack Vector</th><th>Metric</th><th>Score</th><th>Reason</th>"
+        f"</tr></thead><tbody>{rows_html if rows_html else '<tr><td colspan=5>No failed adversarial tests!</td></tr>'}</tbody></table></div></div>"
+    )
+    return f"""
+    <h2 class="section-title">&#x1F6E1;&#xFE0F; Security Posture</h2>
+    <div class="chart-grid">
+        <div class="chart-card">{{c_cat_html}}</div>
+        <div class="chart-card">{{c_sev_html}}</div>
+    </div>
+    {{table_html}}
+    """
+
 # ---------------------------------------------------------------------------
 # Full HTML assembly
 # ---------------------------------------------------------------------------
@@ -869,6 +963,7 @@ def build_html(
     c4 = chart_test_case_heatmap(run_groups, last_n)
     kpi = _kpi_html(latest_rows, latest_label, len(run_groups))
     calibration = _calibration_html(latest_rows)
+    security_section = chart_security_posture(latest_rows)
 
     # Embed Plotly offline JS once using the official API
     plotly_script = f"<script type='text/javascript'>{get_plotlyjs()}</script>"
@@ -983,6 +1078,8 @@ function downloadPNG() {{
   <div class="chart-card" style="margin-top: 1.5rem;">
     {c4}
   </div>
+
+  {security_section}
 
   {diff_section}
 
