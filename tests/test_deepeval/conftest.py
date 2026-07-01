@@ -103,10 +103,17 @@ def _prompt_human_evaluator(item: pytest.Item, test_case_id: str, case_data: Dic
     if capmanager:
         capmanager.suspend_global_capture(in_=True)
     
+    # Try to get data from llm_eval_results first, fallback to case_data
+    llm_data = llm_eval_results.get(test_case_id, {})
+    
+    input_text = llm_data.get("input") or case_data.get("input") or case_data.get("user_input")
+    expected_output = llm_data.get("expected_output") or case_data.get("expected_output") or case_data.get("expected_behavior")
+    actual_output = llm_data.get("actual_output") or case_data.get("actual_output")
+    
     print(f"\n\n=== HUMAN EVALUATION REQUIRED: {test_case_id} ===")
-    print(f"Input: {case_data.get('input')}")
-    print(f"Expected Output: {case_data.get('expected_output')}")
-    print(f"Actual Output: {case_data.get('actual_output')}")
+    print(f"Input: {input_text}")
+    print(f"Expected Output: {expected_output}")
+    print(f"Actual Output: {actual_output}")
     
     human_score = None
     while True:
@@ -160,11 +167,15 @@ def _generate_csv_reports(config: pytest.Config, terminalreporter: Any) -> None:
                         h_score = h_data.get("score", "") if isinstance(h_data, dict) else (h_data if h_data is not None else "")
                         h_reason = h_data.get("reason", "") if isinstance(h_data, dict) else ""
                             
+                        input_text = llm_data.get("input") or test_data.get("input", "")
+                        expected_output = llm_data.get("expected_output") or test_data.get("expected_output", "")
+                        actual_output = llm_data.get("actual_output") or test_data.get("actual_output", "")
+                            
                         writer.writerow([
                             test_id,
-                            test_data.get("input", ""),
-                            test_data.get("expected_output", ""),
-                            test_data.get("actual_output", ""),
+                            input_text,
+                            expected_output,
+                            actual_output,
                             l_score,
                             l_reason,
                             h_score,
@@ -227,7 +238,7 @@ def _report_cohens_kappa(config: pytest.Config, terminalreporter: Any) -> None:
 # --- Core Pytest Hooks ---
 
 def pytest_runtest_call(item: pytest.Item) -> None:
-    """Hook to prompt for human evaluation and parse test case configuration."""
+    """Hook to parse test case configuration."""
     case_data = _extract_case_data(item)
     if not case_data:
         return
@@ -237,15 +248,6 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         return
         
     _parse_and_store_test_node(item, test_case_id, case_data)
-    
-    try:
-        needs_human_eval = item.config.getini('human_eval')
-    except ValueError:
-        needs_human_eval = False
-    
-    human_labels = getattr(item.config, 'human_labels', {})
-    if needs_human_eval and test_case_id not in human_labels:
-        _prompt_human_evaluator(item, test_case_id, case_data)
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> Generator[None, None, None]:
@@ -276,6 +278,15 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> Gener
                     "score": score,
                     "reason": reason
                 }
+
+            try:
+                needs_human_eval = item.config.getini('human_eval')
+            except ValueError:
+                needs_human_eval = False
+            
+            human_labels = getattr(item.config, 'human_labels', {})
+            if needs_human_eval and test_case_id not in human_labels:
+                _prompt_human_evaluator(item, test_case_id, case_data)
 
 def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:
     """Hook called at the end to generate reports and calculate Cohen's Kappa."""

@@ -83,7 +83,10 @@ def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unkn
             reason = getattr(metric, "reason", None)
             llm_eval_results[test_case_id] = {
                 "score": 1,
-                "reason": reason if reason else "Passed."
+                "reason": reason if reason else "Passed.",
+                "input": getattr(test_case, "input", ""),
+                "expected_output": getattr(test_case, "expected_output", ""),
+                "actual_output": getattr(test_case, "actual_output", "")
             }
         return
     except AssertionError as e:
@@ -107,7 +110,10 @@ def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unkn
             
         llm_eval_results[test_case_id] = {
             "score": 0,
-            "reason": " | ".join(fail_reasons)
+            "reason": " | ".join(fail_reasons),
+            "input": getattr(test_case, "input", ""),
+            "expected_output": getattr(test_case, "expected_output", ""),
+            "actual_output": getattr(test_case, "actual_output", "")
         }
         
         pytest.fail(f"Test Case {test_case_id} failed: {' | '.join(fail_reasons)}", pytrace=False)
@@ -115,7 +121,10 @@ def run_evaluation(test_case: Any, metrics: List[Any], test_case_id: str = "Unkn
         logger.error(f"Test Case {test_case_id} encountered an error: {e}")
         llm_eval_results[test_case_id] = {
             "score": "",
-            "reason": f"Evaluation Error: {str(e)}"
+            "reason": f"Evaluation Error: {str(e)}",
+            "input": getattr(test_case, "input", ""),
+            "expected_output": getattr(test_case, "expected_output", ""),
+            "actual_output": getattr(test_case, "actual_output", "")
         }
         pytest.fail(f"Test Case {test_case_id} encountered an evaluation error: {str(e)}", pytrace=False)
 
